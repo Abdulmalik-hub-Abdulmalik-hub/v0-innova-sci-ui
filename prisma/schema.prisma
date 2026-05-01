@@ -1,0 +1,81 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  free
+  pro
+  institution
+  admin
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          Role      @default(free)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  chats         Chat[]
+  files         File[]
+  logs          ActivityLog[]
+  subscription  Subscription?
+}
+
+model Chat {
+  id        String    @id @default(cuid())
+  title     String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  messages  Message[]
+  createdAt DateTime  @default(now())
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  role      String   // 'user' or 'assistant'
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  plan      Role
+  status    String   // 'active', 'cancelled'
+  startDate DateTime @default(now())
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  planTag   String
+  createdAt DateTime @default(now())
+}
