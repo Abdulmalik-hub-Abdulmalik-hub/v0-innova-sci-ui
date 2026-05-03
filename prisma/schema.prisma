@@ -1,38 +1,109 @@
-// This is your Prisma schema file
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// -------------------------------------------------------------------------
+// INNOVASCI AI LABS - FINAL UNIFIED PRODUCTION SCHEMA
+// Optimized for: Auth, Verification, Marketplace, Staff, AI Research & Logs
+// -------------------------------------------------------------------------
 
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS (Centralized Role & Status Management) ---
 enum Role {
   free
   pro
   institution
+  staff
+  moderator
+  finance
+  support
+  auditor
   admin
 }
 
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// --- USER & AUTH SYSTEM ---
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String?
-  role          Role      @default(free)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                      String    @id @default(cuid())
+  email                   String    @unique
+  password                String
+  name                    String?
+  role                    Role      @default(free)
+  
+  // Email Verification Fields
+  isVerified              Boolean   @default(false)
+  verificationToken       String?   @unique
+  verificationTokenExpiry DateTime?
+  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  // Relationships
   chats         Chat[]
   files         File[]
-  logs          ActivityLog[]
+  orders        Order[]
+  activityLogs  ActivityLog[]
+  assignedTasks StaffTask[]     @relation("AssignedStaff")
+  tickets       SupportTicket[]
+  newsArticles  NewsArticle[]   @relation("Author")
   subscription  Subscription?
 }
 
+// --- MARKETPLACE SYSTEM ---
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  category    String
+  type        String   // digital | course | service
+  fileUrl     String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  totalAmount   Float
+  status        OrderStatus @default(PENDING)
+  paymentRef    String?     @unique
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// --- AI ASSISTANT ("HAKEEM") & RESEARCH ---
 model Chat {
   id        String    @id @default(cuid())
-  title     String
   userId    String
+  title     String    @default("New Research Chat")
   user      User      @relation(fields: [userId], references: [id])
   messages  Message[]
   createdAt DateTime  @default(now())
@@ -40,20 +111,11 @@ model Chat {
 
 model Message {
   id        String   @id @default(cuid())
-  content   String
+  content   String   @db.Text
   role      String   // 'user' or 'assistant'
   chatId    String
   chat      Chat     @relation(fields: [chatId], references: [id])
-  createdAt DateTime @default(now())
-}
-
-model Subscription {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  plan      Role
-  status    String   // 'active', 'cancelled'
-  startDate DateTime @default(now())
+  createdAt DateTime @now()
 }
 
 model File {
@@ -61,21 +123,71 @@ model File {
   name      String
   url       String
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  metadata  Json?     // Added for research insights
   createdAt DateTime @default(now())
 }
 
-model ActivityLog {
+// --- SUBSCRIPTION SYSTEM ---
+model Subscription {
   id        String   @id @default(cuid())
-  action    String
-  userId    String
+  userId    String   @unique
   user      User     @relation(fields: [userId], references: [id])
+  plan      Role
+  status    String   // 'active', 'cancelled', 'expired'
+  startDate DateTime @default(now())
+  endDate   DateTime?
+}
+
+// --- STAFF, SUPPORT & WORKFORCE ---
+model StaffTask {
+  id          String   @id @default(cuid())
+  staffId     String
+  title       String
+  description String?
+  priority    String   // low | medium | high
+  status      String   @default("pending")
+  deadline    DateTime
+  createdAt   DateTime @default(now())
+  staff       User     @relation("AssignedStaff", fields: [staffId], references: [id])
+}
+
+model SupportTicket {
+  id        String       @id @default(cuid())
+  userId    String
+  subject   String
+  message   String       @db.Text
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id])
+}
+
+// --- CONTENT & NEWS ---
+model NewsArticle {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  category  String   @default("Research")
+  authorId  String
   createdAt DateTime @default(now())
+  author    User     @relation("Author", fields: [authorId], references: [id])
 }
 
 model NewsletterSubscriber {
   id        String   @id @default(cuid())
   email     String   @unique
-  planTag   String
+  planTag   String   @default("free")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// --- AUDIT TRAIL & LOGS ---
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  resource  String?
+  ipAddress String?
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
