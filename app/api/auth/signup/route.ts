@@ -1,35 +1,36 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
-import crypto from 'crypto';
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   try {
-    const { email, password, name } = await req.json();
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get('token');
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: 'Missing token' }, { status: 400 });
     }
 
-    const hashedPassword = await hashPassword(password);
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
+    const user = await prisma.user.findFirst({
+      where: {
         verificationToken: token,
-        verificationTokenExpiry: expiry,
+        verificationTokenExpiry: { gt: new Date() },
       },
     });
 
-    // NOTE: Here you would call your EmailService to send the token
-    console.log(`Verification Token for ${email}: ${token}`);
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 400 });
+    }
 
-    return NextResponse.json({ message: 'User created. Check email to verify.' });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null,
+      },
+    });
+
+    return NextResponse.redirect(new URL('/login?verified=true', req.url));
   } catch (error) {
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
   }
