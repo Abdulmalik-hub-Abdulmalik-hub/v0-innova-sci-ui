@@ -1,53 +1,36 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { hashPassword } from '@/lib/auth';
+import crypto from 'crypto';
 
-/**
- * EMAIL VERIFICATION HANDLER
- * This route validates the token from the email link and activates the user account.
- */
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const token = searchParams.get('token');
+    const { email, password, name } = await req.json();
 
-    // 1. Check if token is provided
-    if (!token) {
-      return NextResponse.json({ error: 'Missing verification token.' }, { status: 400 });
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
     }
 
-    // 2. Find user with this token and check if token has not expired
-    const user = await prisma.user.findFirst({
-      where: {
-        verificationToken: token,
-        verificationTokenExpiry: {
-          gt: new Date(), // Check if expiry date is greater than "now"
-        },
-      },
-    });
+    const hashedPassword = await hashPassword(password);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired verification token.' },
-        { status: 400 }
-      );
-    }
-
-    // 3. Update user status to verified and clear tokens
-    await prisma.user.update({
-      where: { id: user.id },
+    const user = await prisma.user.create({
       data: {
-        isVerified: true,
-        verificationToken: null,
-        verificationTokenExpiry: null,
+        email,
+        password: hashedPassword,
+        name,
+        verificationToken: token,
+        verificationTokenExpiry: expiry,
       },
     });
 
-    // 4. Redirect to login page with a success message
-    // Note: Ensure your frontend handles the 'verified=true' query param
-    return NextResponse.redirect(new URL('/login?verified=true', req.url));
+    // NOTE: Here you would call your EmailService to send the token
+    console.log(`Verification Token for ${email}: ${token}`);
 
+    return NextResponse.json({ message: 'User created. Check email to verify.' });
   } catch (error) {
-    console.error('VERIFICATION_ERROR:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
   }
 }
