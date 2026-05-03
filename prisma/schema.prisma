@@ -115,7 +115,7 @@ model Message {
   role      String   // 'user' or 'assistant'
   chatId    String
   chat      Chat     @relation(fields: [chatId], references: [id])
-  createdAt DateTime @now()
+  createdAt DateTime @default(now()) // GYARA: An canza daga @now() zuwa @default(now())
 }
 
 model File {
