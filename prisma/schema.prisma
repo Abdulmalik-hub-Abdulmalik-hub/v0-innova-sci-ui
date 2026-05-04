@@ -115,7 +115,7 @@ model Message {
   role      String   // 'user' or 'assistant'
   chatId    String
   chat      Chat     @relation(fields: [chatId], references: [id])
-  createdAt DateTime @default(now()) // GYARA: An canza daga @now() zuwa @default(now())
+  createdAt DateTime @default(now())
 }
 
 model File {
@@ -124,7 +124,7 @@ model File {
   url       String
   userId    String
   user      User      @relation(fields: [userId], references: [id])
-  metadata  Json?     // Added for research insights
+  metadata  Json?     
   createdAt DateTime @default(now())
 }
 
@@ -190,4 +190,4 @@ model ActivityLog {
   ipAddress String?
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-} 
+}
