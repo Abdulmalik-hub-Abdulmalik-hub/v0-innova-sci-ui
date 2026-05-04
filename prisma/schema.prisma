@@ -190,4 +190,4 @@ model ActivityLog {
   ipAddress String?
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-}
+} 
