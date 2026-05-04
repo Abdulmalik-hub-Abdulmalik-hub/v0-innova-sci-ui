@@ -77,7 +77,7 @@ model Product {
   status      String   @default("active")
   createdAt   DateTime @default(now())
   orderItems  OrderItem[]
-}
+} 
 
 model Order {
   id            String      @id @default(cuid())
