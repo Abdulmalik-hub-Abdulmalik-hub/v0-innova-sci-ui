@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { hashPassword, comparePassword } from '@/lib/auth';
+import { comparePassword } from '@/lib/auth';
 import { signToken } from '@/lib/auth/jwt';
 
 /**
@@ -26,7 +26,6 @@ export async function POST(req: Request) {
     }
 
     // 3. CORE REQUIREMENT: Block unverified users
-    // Users must click the verification link sent during signup
     if (!user.isVerified) {
       return NextResponse.json(
         { 
