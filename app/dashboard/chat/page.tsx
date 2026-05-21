@@ -9,10 +9,18 @@ import { Sparkles, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 // Sample conversation data
-const initialMessages = [
+type MessageRole = "assistant" | "user"
+interface ChatMessage {
+  id: number
+  role: MessageRole
+  content: string
+  timestamp: Date
+}
+
+const initialMessages: ChatMessage[] = [
   {
     id: 1,
-    role: "assistant" as const,
+    role: "assistant",
     content: "Hello! I'm Hakeem, your AI research assistant. I can help you analyze scientific papers, explain complex concepts, and assist with your research questions. How can I help you today?",
     timestamp: new Date(Date.now() - 3600000),
   },
@@ -34,13 +42,13 @@ export default function ChatPage() {
 
   const handleSendMessage = async (content: string) => {
     // Add user message
-    const userMessage = {
+    const userMessage: ChatMessage = {
       id: messages.length + 1,
-      role: "user" as const,
+      role: "user",
       content,
       timestamp: new Date(),
     }
-    setMessages((prev) => [...prev, userMessage])
+    setMessages((prev: ChatMessage[]) => [...prev, userMessage])
     setIsLoading(true)
 
     // Simulate AI response
@@ -51,13 +59,13 @@ export default function ChatPage() {
       default: `That's an interesting question! Based on my analysis, I can provide some insights on "${content.slice(0, 50)}..."\n\nLet me break this down for you:\n\n1. **Key Concepts**: The topic you're asking about involves several interconnected principles.\n\n2. **Current Research**: Recent studies have shown promising results in this area.\n\n3. **Practical Applications**: This knowledge can be applied in various scientific contexts.\n\nWould you like me to elaborate on any of these points or explore a specific aspect in more detail?`,
     }
 
-    const aiMessage = {
+    const aiMessage: ChatMessage = {
       id: messages.length + 2,
-      role: "assistant" as const,
+      role: "assistant",
       content: aiResponses.default,
       timestamp: new Date(),
     }
-    setMessages((prev) => [...prev, aiMessage])
+    setMessages((prev: ChatMessage[]) => [...prev, aiMessage])
     setIsLoading(false)
   }
 
