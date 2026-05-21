@@ -1,31 +1,22 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Null-safe client initialization for build/CI environments
-function getSupabaseEnvVar(key: string, fallback = ''): string {
+function getEnv(key: string, fallback = ''): string {
   return process.env[key] || fallback
 }
 
-const supabaseUrl = getSupabaseEnvVar('NEXT_PUBLIC_SUPABASE_URL', 'https://placeholder.supabase.co')
-const supabaseAnonKey = getSupabaseEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'placeholder-key')
+const supabaseUrl = getEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://placeholder.supabase.co')
+const supabaseKey = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'placeholder-key')
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: typeof window !== 'undefined',
-    autoRefreshToken: typeof window !== 'undefined',
-  },
-})
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey)
 
-// Check if client is properly configured (not using placeholders)
-export const isSupabaseConfigured = (): boolean => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  return !!(url && key && !url.includes('placeholder'))
+export function isConfigured(): boolean {
+  const url = getEnv('NEXT_PUBLIC_SUPABASE_URL')
+  return !!(url && !url.includes('placeholder'))
 }
 
 export async function getCurrentUser() {
-  if (!isSupabaseConfigured()) return null
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
+  if (!isConfigured()) return null
+  const { data: { user } } = await supabase.auth.getUser()
   return user
 }
 
