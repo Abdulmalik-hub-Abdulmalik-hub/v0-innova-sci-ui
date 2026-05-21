@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-// Safe env getters with fallbacks
-function getEnvVar(key: string): string {
+// Safe env getter
+function getEnv(key: string): string {
   return process.env[key] || ''
 }
 
@@ -12,20 +12,20 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/api/admin/:path*',
-  ],
+  matcher: ['/dashboard/:path*', '/api/admin/:path*'],
 }
 
-// Session helper for API routes using Supabase SSR client
+/**
+ * getAuthSession - Standard Supabase SSR session retrieval
+ * Used in API routes to get authenticated user from cookies
+ */
 export async function getAuthSession(req: NextRequest) {
   const supabase = createServerClient(
-    getEnvVar('NEXT_PUBLIC_SUPABASE_URL'),
-    getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    getEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     {
       cookies: {
-        getAll: () => req.cookies.getAll().map(({ name, value }) => ({ name, value })),
+        getAll: () => req.cookies.getAll().map(c => ({ name: c.name, value: c.value })),
         setAll: () => {},
       },
     }
@@ -34,7 +34,9 @@ export async function getAuthSession(req: NextRequest) {
   return user ?? null
 }
 
-// Admin guard helper
+/**
+ * adminGuard - Check if user is admin
+ */
 export async function adminGuard(userId: string): Promise<boolean> {
   return userId.includes('admin') || userId === 'admin'
 }
