@@ -1,29 +1,41 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase, ADMIN_EMAIL } from '@/lib/supabase';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // This hits your backend API route
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || 'Something went wrong');
-    } else {
-      // Handle successful login (e.g., redirect to dashboard, save token)
-      window.location.href = '/dashboard';
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        const redirectPath = email === ADMIN_EMAIL ? '/admin' : '/dashboard';
+        router.push(redirectPath);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 

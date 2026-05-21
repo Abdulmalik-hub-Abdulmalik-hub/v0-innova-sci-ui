@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { FlaskConical, Mail, Lock, User, ArrowRight, Eye, EyeOff, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { supabase, ADMIN_EMAIL } from "@/lib/supabase"
 
 // Password requirements
 const passwordRequirements = [
@@ -18,6 +19,7 @@ export default function SignupPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -27,12 +29,30 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
     
-    // Placeholder for signup logic
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Redirect to dashboard after signup
-    router.push("/dashboard")
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: { data: { name: formData.name } }
+      })
+
+      if (signUpError) {
+        setError(signUpError.message)
+        setIsLoading(false)
+        return
+      }
+
+      if (data.user) {
+        const redirectPath = formData.email === ADMIN_EMAIL ? "/admin" : "/dashboard"
+        router.push(redirectPath)
+      }
+    } catch (err) {
+      setError("An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
