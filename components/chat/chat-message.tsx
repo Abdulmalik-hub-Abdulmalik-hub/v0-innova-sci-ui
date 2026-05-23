@@ -1,3 +1,5 @@
+"use client"
+
 import { Sparkles, User, Copy, ThumbsUp, ThumbsDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
