@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { FlaskConical, Mail, Lock, User, ArrowRight, Eye, EyeOff, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { supabase } from "@/lib/supabase"
+import { supabase, isConfigured } from "@/lib/supabase"
 
 const passwordRequirements = [
   { label: "At least 8 characters", check: (p: string) => p.length >= 8 },
@@ -40,183 +40,215 @@ export default function SignupPage() {
     setError(null)
 
     try {
+      // Check if Supabase is configured
+      if (!isConfigured()) {
+        // Dev mode without Supabase - simulate success
+        console.warn("[Signup] Running in demo mode - Supabase not configured")
+        setSuccess(true)
+        setTimeout(() => router.push("/auth/login"), 1500)
+        return
+      }
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          data: { name: formData.name },
-          emailRedirectTo: typeof window !== 'undefined' 
-            ? `${window.location.origin}/auth/callback` 
-            : undefined
-        }
+          data: {
+            name: formData.name,
+          },
+        },
       })
 
       if (signUpError) {
         console.error("SIGNUP_ERR:", signUpError.message)
         setError(signUpError.message)
-        setIsLoading(false)
-        return
-      }
-
-      if (data.user || data.session) {
-        router.push("/dashboard")
-      } else if (data.data?.confirmation_sent) {
+      } else if (data.user) {
         setSuccess(true)
-        setError(null)
+        // Redirect to login after successful signup
+        setTimeout(() => router.push("/auth/login"), 1500)
       }
-    } catch (err: unknown) {
-      console.error("SIGNUP_ERR:", err)
-      setError("Account created! Check your email to verify.")
-      setSuccess(true)
+    } catch (err) {
+      console.error("FETCH_ERROR:", err)
+      setError("Connection failed. Please check your internet and try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleOAuth = async (provider: "google" | "github") => {
-    if (isLoading) return
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const redirectUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/callback`
-        : undefined
-      
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: redirectUrl }
-      })
-
-      if (oauthError) {
-        console.error("OAUTH_ERR:", oauthError.message)
-        setError(oauthError.message)
-        setIsLoading(false)
-      }
-    } catch (err) {
-      console.error("OAUTH_ERR:", err)
-      setError("OAuth failed. Please try again.")
-      setIsLoading(false)
-    }
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
-  }
-
-  const passwordStrength = React.useMemo(() => {
-    const passed = passwordRequirements.filter(r => r.check(formData.password)).length
-    if (passed === 0) return "none"
-    if (passed <= 1) return "weak"
-    if (passed === 2) return "medium"
-    return "strong"
-  }, [formData.password])
+  // Demo mode indicator
+  const demoMode = !isConfigured()
 
   return (
-    <div className="flex min-h-screen">
-      <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
-        <div className="mx-auto w-full max-w-sm">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <FlaskConical className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-semibold text-foreground">InnovaSci</span>
-          </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-card to-secondary/30 px-4 py-12">
+      <div className="w-full max-w-md">
+        {/* Demo Mode Banner */}
+        {demoMode && (
+          <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 text-sm text-center">
+            ⚠️ Demo Mode - Configure Supabase to enable real signups
+          </div>
+        )}
 
-          <h1 className="mt-8 text-2xl font-bold text-foreground">Create your account</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Start your free trial</p>
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/25 mb-4">
+            <FlaskConical className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold">Create Account</h1>
+          <p className="text-muted-foreground mt-1">Join InnovaSci AI Labs</p>
+        </div>
 
-          {success && (
-            <div className="mt-4 p-3 text-sm text-green-800 bg-green-50 rounded">
-              Account created! Check your email to verify.
-            </div>
-          )}
-          {error && !success && (
-            <div className="mt-4 p-3 text-sm text-red-800 bg-red-50 rounded">{error}</div>
-          )}
-
-          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-foreground">Full name</label>
-              <div className="relative mt-2">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="name" name="name" type="text" value={formData.name}
-                  onChange={handleChange} placeholder="Your name"
-                  className="h-11 bg-secondary pl-10" required disabled={isLoading}
-                />
+        {/* Form Card */}
+        <div className="bg-card rounded-2xl border border-border p-8 shadow-xl">
+          {success ? (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                <Check className="w-8 h-8 text-green-600" />
               </div>
+              <h2 className="text-xl font-semibold mb-2">Check your email!</h2>
+              <p className="text-muted-foreground">
+                We sent a confirmation link to <strong>{formData.email}</strong>
+              </p>
             </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
-              <div className="relative mt-2">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="email" name="email" type="email" value={formData.email}
-                  onChange={handleChange} placeholder="you@example.com"
-                  className="h-11 bg-secondary pl-10" required disabled={isLoading}
-                />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Name */}
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="pl-10 h-11"
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
-              <div className="relative mt-2">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="password" name="password" type={showPassword ? "text" : "password"}
-                  value={formData.password} onChange={handleChange}
-                  placeholder="Create password" className="h-11 bg-secondary pl-10 pr-10" required disabled={isLoading}
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-                </button>
+              {/* Email */}
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="pl-10 h-11"
+                    required
+                  />
+                </div>
               </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="pl-10 pr-10 h-11"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Password Requirements */}
               {formData.password && (
-                <div className="mt-2">
-                  <div className="flex gap-1">
-                    {["weak", "medium", "strong"].map(lvl => (
-                      <div key={lvl} className={`h-1 flex-1 rounded-full ${
-                        lvl === "weak" && passwordStrength === "none" ? "bg-red-500" :
-                        lvl === "weak" && passwordStrength === "weak" ? "bg-red-500" :
-                        lvl === "medium" && passwordStrength === "medium" ? "bg-yellow-500" :
-                        lvl === "strong" && passwordStrength === "strong" ? "bg-green-500" : "bg-gray-200"
-                      }`} />
-                    ))}
-                  </div>
+                <div className="space-y-1">
+                  {passwordRequirements.map((req, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <Check className={`w-3 h-3 ${req.check(formData.password) ? "text-green-500" : "text-muted-foreground"}`} />
+                      <span className={req.check(formData.password) ? "text-green-600" : "text-muted-foreground"}>
+                        {req.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
+
+              {/* Error */}
+              {error && (
+                <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Submit */}
+              <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Creating account...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    Create Account <ArrowRight className="w-4 h-4" />
+                  </span>
+                )}
+              </Button>
+            </form>
+          )}
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
             </div>
-
-            <Button type="submit" className="h-11 w-full" disabled={isLoading}>
-              {isLoading ? "Creating..." : "Create account"}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-            </Button>
-          </form>
-
-          <div className="relative mt-8">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t"/></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-background text-muted-foreground">Or continue with</span></div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+            </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <Button variant="outline" className="h-11" onClick={() => handleOAuth("google")} disabled={isLoading}>
-              Google
-            </Button>
-            <Button variant="outline" className="h-11" onClick={() => handleOAuth("github")} disabled={isLoading}>
-              GitHub
-            </Button>
-          </div>
-
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Already have an account? <Link href="/auth/login" className="text-primary hover:underline">Sign in</Link>
-          </p>
+          {/* Social Login */}
+          <Button variant="outline" className="w-full h-11" type="button" onClick={async () => {
+            if (!isConfigured()) {
+              setError("Configure Supabase to enable OAuth")
+              return
+            }
+            try {
+              const { error: oauthError } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: { redirectTo: window.location.origin + "/auth/callback" }
+              })
+              if (oauthError) setError(oauthError.message)
+            } catch (err) {
+              setError("OAuth failed. Please try again.")
+            }
+          }}>
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.96 21.53 7.7 23 12 23z" />
+              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.96 2.47 2.18 5.12l2.85 2.85c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            Continue with Google
+          </Button>
         </div>
-      </div>
 
-      <div className="hidden flex-1 lg:block">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-background" />
+        {/* Sign In Link */}
+        <p className="text-center mt-6 text-muted-foreground">
+          Already have an account?{" "}
+          <Link href="/auth/login" className="text-primary font-medium hover:underline">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   )
